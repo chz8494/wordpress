@@ -1068,7 +1068,7 @@ function ffwd_blog_style_resize(ffwd_params, ffwd) {
 
 jQuery(window).ready(function () {
   jQuery.ajax({
-    url: wd_ffwd.ajax_url,
+    url: ffwd_frontend_text.ajax_url,
     data: {
       'action': 'ffwd_autoupdate',
 		},

@@ -716,6 +716,28 @@ $ffwd_info_options[$ffwd_option_db]	=((isset($_POST[$ffwd_option_db])) ? esc_htm
 
      /*print_r($fb_graph_url);
      wp_die();*/
+
+      if (self::$auto_update_feed == 1) {
+          global $wpdb;
+
+          $id = self::$fb_id;
+          $update_ids = array();
+          $rows = $wpdb->get_results($wpdb->prepare('SELECT object_id,id FROM ' . $wpdb->prefix . 'wd_fb_data WHERE fb_id="%d" ORDER BY `created_time_number` ASC ', $id));
+          foreach ($rows as $row) {
+              $update_ids[$row->object_id] = $row->id;
+          }
+          $fb_graph_url_update = str_replace(
+              array('{FB_ID}', '{EDGE}', '{ACCESS_TOKEN}', '{FIELDS}', '{LIMIT}', '{OTHER}'),
+              array('', '', 'ids=' . implode(array_keys($update_ids), ',') . '&access_token=' . self::$access_token . '&', $fields, 'locale=' . get_locale() . '&', ''),
+              self::$graph_url
+          );
+
+          $update_data = self::decap_do_curl($fb_graph_url_update);
+          self::update_wd_fb_data($update_data, $update_ids);
+
+      }
+
+
 		$data['data'] = self::complite_timeline($fb_graph_url);
 		self::$data = $data;
 
@@ -734,7 +756,172 @@ $ffwd_info_options[$ffwd_option_db]	=((isset($_POST[$ffwd_option_db])) ? esc_htm
           }
   }
 
-	public static function ffwd_event_data_sort($a, $b)
+
+    public static function update_wd_fb_data($data, $ids)
+    {
+        global $wpdb;
+        $content = implode(",", self::$content);
+        $success = 'no_data';
+
+
+        foreach ($data as $key => $next) {
+
+
+            /**
+             * check if content_type is timeline dont save wd_fb_data if
+             * $content string not contain $next['type']
+             */
+            if (self::$content_type == 'timeline') {
+                if (strpos($content, $next['type']) === false)
+                    continue;
+                $type = $next['type'];
+
+                if (self::$timeline_type == 'others')
+                    if (self::$id == $next['from']['id'])
+                        continue;
+            } else
+                $type = self::$content[0];
+
+            // Use this var for check if album imgs count not 0
+            $album_imgs_exists = true;
+
+            switch ($type) {
+                case 'photos': {
+                    /**
+                     * If object type is photo(photos, video, videos,
+                     * album, event cover photo etc ) so trying to
+                     * check the count of resolution types
+                     * and store source for thumb and main size
+                     */
+                    if (array_key_exists('images', $next)) {
+                        $img_res_count = count($next['images']);
+                        if ($img_res_count > 6) {
+                            $thumb_url = $next['images'][$img_res_count - 1]['source'];
+                            $main_url = $next['images'][0]['source'];
+                        } else {
+                            $thumb_url = $next['images'][0]['source'];
+                            $main_url = $next['images'][0]['source'];
+                        }
+                        $width = $next['images'][0]['width'];
+                        $height = $next['images'][0]['height'];
+                    }
+                    break;
+                }
+                case 'videos': {
+                    if (array_key_exists('format', $next)) {
+                        $img_res_count = count($next['format']);
+                        if ($img_res_count > 2) {
+                            $main_url = $next['format'][$img_res_count - 1]['picture'];
+                            $thumb_url = $next['format'][1]['picture'];
+                        } else {
+                            $thumb_url = $next['format'][$img_res_count - 1]['picture'];
+                            $main_url = $next['format'][$img_res_count - 1]['picture'];
+                        }
+                        $width = $next['format'][$img_res_count - 1]['width'];
+                        $height = $next['format'][$img_res_count - 1]['height'];
+                    }
+                    break;
+                }
+                case 'albums': {
+                    if (array_key_exists('count', $next)) {
+                        $album_imgs_count = $next['count'];
+                        if ($album_imgs_count == 0) {
+                            $album_imgs_exists = false;
+                        }
+                    }
+                    break;
+                }
+                default: {
+                    $thumb_url = '';
+                    $main_url = '';
+                }
+            }
+            if ($type == "albums" && !$album_imgs_exists)
+                continue;
+            // Check if exists such keys in $next array
+            $object_id = array_key_exists('id', $next) ? $next['id'] : '';
+            $name = array_key_exists('name', $next) ? addcslashes($next['name'], '\\') : '';
+            $description = array_key_exists('description', $next) ? addcslashes($next['description'], '\\') : '';
+            $link = array_key_exists('link', $next) ? $next['link'] : '';
+            $status_type = array_key_exists('status_type', $next) ? $next['status_type'] : '';
+            $message = array_key_exists('message', $next) ? addcslashes($next['message'], '\\') : '';
+            $story = array_key_exists('story', $next) ? $next['story'] : '';
+            $place = array_key_exists('place', $next) ? json_encode($next['place']) : '';
+            $message_tags = array_key_exists('message_tags', $next) ? json_encode($next['message_tags']) : '';
+            $with_tags = array_key_exists('with_tags', $next) ? json_encode($next['with_tags']) : '';
+            $story_tags = array_key_exists('story_tags', $next) ? json_encode($next['story_tags']) : '';
+            $reactions = array_key_exists('reactions', $next) ? json_encode($next['reactions']) : '';
+            $comments = array_key_exists('comments', $next) ? json_encode($next['comments']) : '';
+            $shares = array_key_exists('shares', $next) ? json_encode($next['shares']) : '';
+            $attachments = array_key_exists('attachments', $next) ? json_encode($next['attachments']) : '';
+            $from_json = array_key_exists('from', $next) ? json_encode($next['from']) : '';
+            if ($type == "events")
+                $from_json = array_key_exists('owner', $next) ? json_encode($next['owner']) : '';
+
+
+            $reactions = array_key_exists('reactions', $next) ? json_encode($next['reactions']) : '';
+
+            // When content is events some fields have different names, so check them.
+            if ($type == 'events') {
+                $source = array_key_exists('cover', $next) ? $next['cover']['source'] : '';
+                $created_time = array_key_exists('start_time', $next) ? $next['start_time'] : '';
+                $from = array_key_exists('owner', $next) ? $next['owner']['id'] : '';
+
+                $main_url = $source;
+                $thumb_url = $main_url;
+                // Store event end time in update_time field
+                $updated_time = array_key_exists('end_time', $next) ? $next['end_time'] : '';
+            } else {
+                $source = array_key_exists('source', $next) ? $next['source'] : '';
+                $created_time = array_key_exists('created_time', $next) ? $next['created_time'] : '';
+                $from = array_key_exists('from', $next) ? $next['from']['id'] : '';
+
+                //check if thumb and main urls is set (if no , so set them source )
+                $thumb_url = isset($thumb_url) ? $thumb_url : $source;
+                $main_url = isset($main_url) ? $main_url : $source;
+                $updated_time = array_key_exists('updated_time', $next) ? $next['updated_time'] : '';
+            }
+            $width = isset($width) ? $width : '';
+            $height = isset($height) ? $height : '';
+            $created_time_number = ($created_time != '') ? strtotime($created_time) : 0;
+
+            $save_fb_data = $wpdb->update($wpdb->prefix . 'wd_fb_data', array(
+                'fb_id' => self::$fb_id,
+                // 'object_id' => $object_id,
+                // 'from' => $from,
+                'name' => $name,
+                'description' => $description,
+                'type' => $type,
+                'message' => $message,
+                'story' => $story,
+                'place' => $place,
+                'message_tags' => $message_tags,
+                'with_tags' => $with_tags,
+                'story_tags' => $story_tags,
+                'status_type' => $status_type,
+                'link' => $link,
+                'source' => $source,
+                'thumb_url' => $thumb_url,
+                'main_url' => $main_url,
+                'width' => $width,
+                'height' => $height,
+                'created_time' => $created_time,
+                'updated_time' => $updated_time,
+                'created_time_number' => $created_time_number,
+                'comments' => $comments,
+                'shares' => $shares,
+                'attachments' => $attachments,
+                'who_post' => $from_json,
+                'reactions' => $reactions,
+            ), array('id' => $ids[$key]));
+
+        }
+
+    }
+
+
+
+    public static function ffwd_event_data_sort($a, $b)
 	{
 		$date1 = strtotime($a['start_time']);
 		$date2 = strtotime($b['start_time']);
@@ -799,6 +986,25 @@ $ffwd_info_options[$ffwd_option_db]	=((isset($_POST[$ffwd_option_db])) ? esc_htm
 
 		// print_r($fb_graph_url);
     // wp_die();
+      if (self::$auto_update_feed == 1) {
+          global $wpdb;
+
+          $id = self::$fb_id;
+          $update_ids = array();
+          $rows = $wpdb->get_results($wpdb->prepare('SELECT object_id,id FROM ' . $wpdb->prefix . 'wd_fb_data WHERE fb_id="%d" ORDER BY `created_time_number` ASC ', $id));
+          foreach ($rows as $row) {
+              $update_ids[$row->object_id] = $row->id;
+          }
+          $fb_graph_url_update = str_replace(
+              array('{FB_ID}', '{EDGE}', '{ACCESS_TOKEN}', '{FIELDS}', '{LIMIT}', '{OTHER}'),
+              array('', '', 'ids=' . implode(array_keys($update_ids), ',') . '&access_token=' . self::$access_token . '&', $fields, 'locale=' . get_locale() . '&', ''),
+              self::$graph_url
+          );
+
+          $update_data = self::decap_do_curl($fb_graph_url_update);
+          self::update_wd_fb_data($update_data, $update_ids);
+
+      }
     $data = self::decap_do_curl($fb_graph_url);
 
 
