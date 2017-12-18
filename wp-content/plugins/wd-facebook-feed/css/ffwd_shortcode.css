@@ -15,8 +15,13 @@
   height: 60px !important;
   overflow: auto; 
   font-size: 9px;
+  border: none !important;
 }
+.tabs { border: none !important; } 
 
+.tabs h4 {  padding-left: 10px !important; } 
+
+#display_panel .gallery_type select#wd_fb_feed { margin-top:15px; }
 .bwg_short_div * {
   font-size: 10px;
 }

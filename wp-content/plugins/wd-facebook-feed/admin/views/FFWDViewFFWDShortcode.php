@@ -32,12 +32,7 @@ class FFWDViewFFWDShortcode
     <head>
       <title>WD Facebook Feed</title>
       <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-      <script language="javascript" type="text/javascript"
-              src="<?php echo site_url(); ?>/wp-includes/js/tinymce/tiny_mce_popup.js"></script>
-      <script language="javascript" type="text/javascript"
-              src="<?php echo site_url(); ?>/wp-includes/js/tinymce/utils/mctabs.js"></script>
-      <script language="javascript" type="text/javascript"
-              src="<?php echo site_url(); ?>/wp-includes/js/tinymce/utils/form_utils.js"></script>
+	  <link rel="stylesheet" href="<?php echo get_option("siteurl"); ?>/wp-includes/js/tinymce/plugins/compat3x/css/dialog.css" type="text/css" media="all">		  
       <?php
       wp_print_scripts('jquery');
       wp_print_scripts('jquery-ui-core');
@@ -47,49 +42,33 @@ class FFWDViewFFWDShortcode
       ?>
       <link rel="stylesheet" href="<?php echo WD_FFWD_URL . '/css/ffwd_shortcode.css?ver=' . ffwd_version(); ?>">
       <link rel="stylesheet" href="<?php echo WD_FFWD_URL . '/css/jquery-ui-1.10.3.custom.css'; ?>">
-      <script language="javascript" type="text/javascript"
-              src="<?php echo WD_FFWD_URL . '/js/ffwd_shortcode.js?ver=' . ffwd_version(); ?>"></script>
-      <script language="javascript" type="text/javascript"
-              src="<?php echo WD_FFWD_URL . '/js/jscolor/jscolor.js?ver=' . ffwd_version(); ?>"></script>
+      <script language="javascript" type="text/javascript" src="<?php echo WD_FFWD_URL . '/js/ffwd_shortcode.js?ver=' . ffwd_version(); ?>"></script>
+      <script language="javascript" type="text/javascript" src="<?php echo WD_FFWD_URL . '/js/jscolor/jscolor.js?ver=' . ffwd_version(); ?>"></script>
       <base target="_self">
     </head>
-    <body id="link" onLoad="tinyMCEPopup.executeOnLoad('init();');document.body.style.display='';" dir="ltr"
-          class="forceColors">
-    <?php if (isset($_POST['tagtext'])) {
+    <body id="link" dir="ltr" class="forceColors">
+    <?php /* if (isset($_POST['tagtext'])) {
       echo '<script>tinyMCEPopup.close();</script></body></html>';
       die();
-    } ?>
+    }  */?>
     <form method="post" action="#" id="bwg_shortcode_form">
       <?php wp_nonce_field('FFWDShortcode', 'ffwd_nonce'); ?>
       <div class="tabs" role="tablist" tabindex="-1">
-        <ul>
-          <li id="display_tab" class="current" role="tab" tabindex="0">
-                <span>
-                  <a href="javascript:mcTabs.displayTab('display_tab','display_panel');" onMouseDown="return false;"
-                     tabindex="-1">Display</a>
-                </span>
-          </li>
-        </ul>
+       <h4>WD Facebook Feed</h4>
       </div>
       <div class="panel_wrapper">
         <div id="display_panel" class="panel current">
           <div style="">
             <div style="float:left">
               <div class="gallery_type" style="border-style:none">
-                <select name="wd_fb_feed" id="wd_fb_feed"
-                        onchange="wd_fb_display_type('wd_fb', jQuery(this))">
-                  <option value="0" fb_content_type="0" selected="selected">Select Facebook Feed
-                  </option>
-                  <?php
-                  foreach ($wd_fb_rows as $gallery_row) {
-                    ?>
+                <select name="wd_fb_feed" id="wd_fb_feed" onchange="wd_fb_display_type('wd_fb', jQuery(this))">
+                  <option value="0" fb_content_type="0" selected="selected">Select Facebook Feed </option>
+                  <?php foreach ($wd_fb_rows as $gallery_row) { ?>
                     <option value="<?php echo $gallery_row->id; ?>"
-                            fb_type="<?php echo $gallery_row->type; ?>"
-                            fb_content_type="<?php echo $gallery_row->content_type; ?>"
-                            fb_content="<?php echo $gallery_row->content; ?>"> <?php echo $gallery_row->name; ?></option>
-                    <?php
-                  }
-                  ?>
+						fb_type="<?php echo $gallery_row->type; ?>"
+						fb_content_type="<?php echo $gallery_row->content_type; ?>"
+						fb_content="<?php echo $gallery_row->content; ?>"> <?php echo $gallery_row->name; ?></option>
+                  <?php } ?>
                 </select>
               </div>
             </div>
@@ -99,11 +78,10 @@ class FFWDViewFFWDShortcode
       </div>
       <div class="mceActionPanel">
         <div style="float:left;">
-          <input type="button" id="cancel" name="cancel" value="Cancel" onClick="tinyMCEPopup.close();"/>
+          <input type="button" id="cancel" name="cancel" value="Cancel" onClick="top.tinyMCE.activeEditor.windowManager.close(window);"/>
         </div>
         <div style="float:right;">
-          <input type="button" id="insert" name="insert" value="Insert"
-                 onClick="bwg_insert_shortcode('wd_fb', '');"/>
+          <input type="button" id="insert" name="insert" value="Insert" onClick="bwg_insert_shortcode('wd_fb', '');"/>
         </div>
         <div style="clear:both"></div>
       </div>
@@ -119,12 +97,12 @@ class FFWDViewFFWDShortcode
 
       var bwg_insert = 1;
 
-      var content = tinyMCE.activeEditor.selection.getContent();
+      var content = top.tinyMCE.activeEditor.selection.getContent();
 
 
       // Get shortcodes attributes.
       function get_params(module_name) {
-        var selected_text = tinyMCE.activeEditor.selection.getContent();
+        var selected_text = top.tinyMCE.activeEditor.selection.getContent();
         var module_start_index = selected_text.indexOf("[" + module_name);
         var module_end_index = selected_text.indexOf("]", module_start_index);
         var module_str = "";
@@ -159,16 +137,17 @@ class FFWDViewFFWDShortcode
         });
 
         jQuery("#bwg_shortcode_form").submit();
-        if (window.tinymce.isIE && content) {
+        if (top.tinymce.isIE && content) {
           // IE and Update.
-          var all_content = tinyMCE.activeEditor.getContent();
+          var all_content = top.tinyMCE.activeEditor.getContent();
           all_content = all_content.replace('<p></p><p>[WD_FB', '<p>[WD_FB');
-          tinyMCE.activeEditor.setContent(all_content.replace(content, '[WD_FB id="' + jQuery("#wd_fb_feed").val() + '"]'));
+          top.tinyMCE.activeEditor.setContent(all_content.replace(content, '[WD_FB id="' + jQuery("#wd_fb_feed").val() + '"]'));
         }
         else {
-          window.tinyMCE.execCommand('mceInsertContent', false, short_code);
+          top.tinyMCE.execCommand('mceInsertContent', false, short_code);
         }
-        tinyMCEPopup.editor.execCommand('mceRepaint');
+        //tinyMCEPopup.editor.execCommand('mceRepaint');
+		top.tinyMCE.activeEditor.windowManager.close(window);
       }
 
 
